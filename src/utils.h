@@ -1,7 +1,5 @@
 /* Some utils for Valley on GCC 
  *
- * (c) Dave Tickem 2011
- * all rights reserved
  */
  /* Version history 
   * 0.1 First draft
