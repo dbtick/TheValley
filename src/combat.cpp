@@ -224,7 +224,7 @@ character_hit(void)
 {
 	int k;                                    // holds key hit,
 	gotoxy(45,26);
-	printw("*** Strike Quickly... *** <h>ead, <b>ody or <l>egs");    // tell them to hurruy up
+	printw("*** Strike Quickly... [hbl] *** ");    // tell them to hurruy up
 	k=combat_get(2);                        // get a hit (or a miss!)
 	if (k==0)
 	{                                       // took to long,
