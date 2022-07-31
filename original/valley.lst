@@ -1,0 +1,1801 @@
+// ***************************************************************************
+//
+//       The Valley, by Argus Press, Reverse Engineered by Paul Robson 
+//
+// ***************************************************************************
+1       if  page <>&e00  goto copy.to.low.memory@32500
+2       mode 7
+        vdu 23,0,11,0;0;0,0
+//
+//                                Instructions 
+//
+3       print '''''''''
+        print  spc (11); chr$ (131); chr$ (141);"THE VALLEY"
+        print  spc (11); chr$ (131); chr$ (141);"THE VALLEY"
+4       print  spc (11); chr$ (130);"------------"
+5       m= inkey (1000)
+        cls 
+        print "SELECT COLOUR"
+6       print 
+        vdu 131,157,130
+        print "GREEN ON YELLOW =1"'" or WHITE ON BLACK =2"
+7       a$= get$ 
+        a%= val (a$)
+        if a%=1 then a%=2
+        b%=3  else   if a%=2 then a%=7
+        b%=0  else   goto 7
+8       print ''''''"DO YOU WANT INSTRUCTIONS ? Y/N"
+9       a$= get$ 
+        if  a$="N"  then  23  else   cls  
+10      vdu 131
+        print "The Valley is an adventuregame in"' chr$ (131);"which you will explore the valley"' chr$ (131);"itself,woods,swamps"' chr$ (131);"The temple of Y'Nagioth"
+11      print  chr$ (131);"Vounims lair and The Tower of Zaexon"'' chr$ (130)"First you will be asked to chose your"' chr$ (130)"character"; chr$ (129);"CHOSE CAREFULLY"
+12      print '''"Next you will see a map of the valley"'"with your character at the left hand"'"safe castle"
+13      print '' chr$ (131);"You will be asked in which direction"' chr$ (131);"you wish to move"''"PRESS SPACE BAR TO CONTINUE"
+14      a= get 
+        cls 
+15      print ''' chr$ (134);"To move your character you press one"' chr$ (134)"of the keys 1-9.So if 9 is your present"' chr$ (134)"position you would press 3 to"' chr$ (134)"move north east:-"'''
+16      print  tab( 10); chr$ (130);"1  2"; chr$ (136); chr$ (131);"3"''' tab( 10); chr$ (130);"8"; chr$ (134);" 9 "; chr$ (130);"4"''' tab( 10); chr$ (130);"7  6  5" 
+17      print '''"PRESS SPACE BAR TO CONTINUE"
+        a= get 
+        cls 
+18      print '''"You will find treasure,explore the"'"woods,swamps and mysterious buildings"'"and fight"; chr$ (129);"MONSTERS"
+19      print ''"IF YOU HAVE TO FIGHT A MONSTER"' chr$ (130);"You must press a button on the words"' tab( 5)"*****STRIKE QUICKLY*****"  
+20      print '' tab( 10); chr$ (130);"H for HEAD"' tab( 10); chr$ (130);"B for BODY"' tab( 10); chr$ (130);"L for LEGS"' tab( 10); chr$ (130);"S for SPELL.1 to 3"''''
+21      print "PRESS SPACE BAR TO CONTINUE"
+        a= get 
+        cls 
+22      print ''' chr$ (130);"TO SEE YOUR RATING PRESS E"
+23      print '''"TO CONTINUE PRESS f0"
+50      *key0"DELETE1,99|MRUN|M"
+99      stop 
+// ***************************************************************************
+//
+//                                Set up game 
+//
+// ***************************************************************************
+100     dim  wall.x( 3),display( 73),layout( 8),wall.heights( 8),loc.x( 4),loc.y( 4),treasure( 2)
+110     dim  monster$( 18),monster.hp( 18),monster.mp( 18)
+120     keys.group$ =""
+        key.press$ =""
+        unused_fs$ =""
+        delay.func$ =""
+130     cash =0
+        turns =0
+        speed.ctrl =1.6
+        monster.flag =0 
+140     down.line.21$ = chr$ (30)+ string$( 21, chr$ (10))
+150     down.line.16$ = left$( down.line.21$ ,17)
+160     spaces.39$ = string$( 39, chr$ (32))
+170     right.30$ = string$( 30, chr$ (9))
+180     right.20$ = left$( right.30$ ,21)
+185     rating =0
+//
+//                      Skip over the data at line 31500 
+//
+190     for  i%=1 to 32
+200     read  junk$ 
+210     next 
+//
+//                          Read monster information 
+//
+220     for  i%=0 to 18
+230     read  monster$( i%)
+        read  monster.hp( i%)
+        read  monster.mp( i%)
+240     next 
+//
+//                    Switch Graphics Mode and Set Colours 
+//
+250     mode 4
+        vdu 23,0,11,0,0,0,0,0,0,0
+251     vdu 19,0,b%,0,0,0,19,1,a%,0,0,0
+252     temp_aa$ = string$( 40,"_")
+        print  tab( 0,28);temp_aa$ 
+255     print  tab( 0,29);"Movement directions       123"'"press appropriate key     894"'"                          765"
+// ***************************************************************************
+//
+//                  Define UDGs. Character 224 is the frame 
+//
+// ***************************************************************************
+260     vdu 23,224,126,189,219,231,231,219,189,126
+//
+//                        Character 225 is the castle 
+//
+270     vdu 23,225,231,231,231,0,0,231,231,231
+//
+//             Character 226 is the path, bottom left-top right / 
+//
+280     vdu 23,226,1,2,4,8,16,32,64,128
+//
+//             Character 227 is the path, bottom right-top left \ 
+//
+290     vdu 23,227,128,64,32,16,8,4,2,1
+//
+//                Character 228 is the forest tile on the map 
+//
+300     vdu 23,228,255,193,128,128,128,148,247,247
+//
+//            Character 229 is the tower of zaexon tile on the map 
+//
+310     vdu 23,229,255,231,219,189,189,219,231,255
+//
+//                        Character 230 is the player 
+//
+320     vdu 23,230,24,24,65,90,88,64,36,36
+//
+//                        Character 231 is the stairs 
+//
+330     vdu 23,231,0,1,3,7,15,31,63,127
+//
+//                     Character 232 is the building tile 
+//
+340     vdu 23,232,170,85,170,85,170,85,170,85
+//
+//                 Character 233 is the swamp tile on the map 
+//
+350     vdu 23,233,255,213,128,255,255,171,1,255
+//
+//                     Character 234 is the tree graphic 
+//
+360     vdu 23,234,0,62,127,127,127,107,8,8
+//
+//                     Character 235 is the internal wall 
+//
+370     vdu 23,235,255,255,255,255,255,255,255,255
+//
+//                     Character 236 is the swamp graphic 
+//
+380     vdu 23,236,2,5,32,80,4,10,64,160
+//
+//                         Character 237 is the door 
+//
+390     vdu 23,237,129,189,189,181,189,189,189,129
+//
+//                     Character 238 is the water graphic 
+//
+400     vdu 23,238,255,204,51,255,255,204,51,255
+//
+//                       Character 239 is the treasure 
+//
+410     vdu 23,239,153,90,36,219,219,36,90,153
+//
+//                  Character 240 is the exit (square hole) 
+//
+420     vdu 23,240,255,129,129,129,129,129,129,255
+425     vdu 23,241,231,231,190,165,167,191,219,219
+430     vdu 28,0,26,39,2
+// ***************************************************************************
+//
+//                              Create character 
+//
+// ***************************************************************************
+1000    print  chr$ (12); chr$ (10);"Load a character from tape? (Y/N)"
+1010    keys.group$ ="YN"
+        gosub get.key.from.group@1500
+1020    print '"Character's name  *"; chr$ (11)
+1025    temp_aa$ = string$( 18, chr$ (9))
+        print temp_aa$ ; 
+1030    input ""  name$  
+1035    if  name$ =""  goto 1030
+1040    if   len (name$ )>16  print  chr$ (10);"TOO LONG!"
+        goto 1030
+1050    if  key.press$ ="N"  goto 1240
+// ***************************************************************************
+//
+//                          Read character from tape 
+//
+// ***************************************************************************
+1060    print  chr$ (12);"Place data tape in the tape deck"
+1070    print  chr$ (10);"Is it rewound?"
+1080    gosub press.any.key@1600
+1085    print  chr$ (10);"PLEASE PRESS PLAY"
+//
+//                               Input the data 
+//
+1090    ch= openup ("CHARACTER") 
+1100    input #ch, name$ ,class$ ,cash ,experience ,turns ,combat.str ,psi.str ,treasure( 0),treasure( 1),treasure( 2),combat.increment ,magic.skill 
+1210    close #ch
+1220    stamina =150
+1230    goto 1400
+// ***************************************************************************
+//
+//                              Select character 
+//
+// ***************************************************************************
+1240    print  chr$ (12); chr$ (10); chr$ (10);"Character Types ... choose carefully"
+1250    print 
+1260    print "Wizard    (1)"
+1270    print "Thinker   (2)"
+1280    print "Barbarian (3)","KEY 1-5"
+1290    print "Warrior   (4)"
+1300    print "Cleric    (5)"
+//
+//                          Input the players choice 
+//
+1310    key.press$ = get$ 
+        if  key.press$ =""  goto 1310
+1320    a= val (key.press$ )
+//
+//                       Select class dependent on that 
+//
+1330    if  a=1 class$ ="Wizard"
+        magic.skill =2
+        combat.increment =0.5
+        combat.str =22
+        psi.str =28  
+1340    if  a=2 class$ ="Thinker"
+        magic.skill =1.5
+        combat.increment =0.75
+        combat.str =24
+        psi.str =26
+1350    if  a=3 class$ ="Barbarian"
+        magic.skill =0.5
+        combat.increment =2
+        combat.str =28
+        psi.str =22
+1360    if  a=4 class$ ="Warrior"
+        magic.skill =1
+        combat.increment =1.25
+        combat.str =26
+        psi.str =24
+1370    if  a=5 class$ ="Cleric"
+        magic.skill =1.25
+        combat.increment =1
+        combat.str =25
+        psi.str =25
+//
+//                 If you can't get this right start again ! 
+//
+1380    if a<1  or  a>5 class$ ="Dolt"
+        magic.skill =1
+        combat.increment =1
+        combat.str =20
+        psi.str =20
+//
+//                            Reset other globals 
+//
+1390    experience =5
+        stamina =150
+// ***************************************************************************
+//
+//                              Create new game 
+//
+// ***************************************************************************
+1400    print  chr$ (10); chr$ (10);"GOOD LUCK"
+1405    fight.factor =39* log (experience )/3.14
+        defeated.flag =0
+1410    print  chr$ (10);name$ ;" the ";class$ 
+1420    delay.factor =150
+        delay.func$ ="D"
+        gosub delay@16000
+1430    gosub create.display@10000
+1440    delay.factor =5
+        gosub delay@16000
+1445    v%= rnd (- time )
+1450    goto main.loop@2000
+// ***************************************************************************
+//
+//                     Get a keystroke in the given group 
+//
+// ***************************************************************************
+1500    key.press$ = get$ 
+        if  key.press$ =""  goto get.key.from.group@1500
+1505    yx=0
+1510    for  i%=1 to  len (keys.group$ )
+1520    if   mid$( keys.group$ ,i%,1)=key.press$   then  yx=1
+1530    next 
+1540    if yx=1 then   return   else   goto get.key.from.group@1500
+// ***************************************************************************
+//
+//                         Press any key to continue 
+//
+// ***************************************************************************
+1600    print  chr$ (10);"**Press any key to continue**" 
+1610    key.press$ = get$ 
+        if  key.press$ =""  goto 1610
+1620    return 
+// ***************************************************************************
+//
+//                        Get key within a time limit 
+//
+// ***************************************************************************
+1700    *fx15,0
+1710    temp.var =0
+1720    key.press$ = inkey$ (150)
+1730    if  key.press$ ="" temp.var =1
+1740    print down.line.21$ ;spaces.39$ 
+1750    return 
+// ***************************************************************************
+//
+//                                 Main Loop 
+//
+// ***************************************************************************
+2000    last.player.x =player.x 
+        last.player.y =player.y 
+        old.char.byte = fn test(player.x ,player.y ,5)
+        print  tab( last.player.x ,last.player.y ); chr$ (230)
+2005    pk1= fn test(player.x ,player.y ,6)
+//
+//                              Recover Stamina 
+//
+2010    stamina =stamina +10
+2020    if  old.char.byte =32  or  old.char.byte =4  goto 2040 
+//
+//                               Select Prompt 
+//
+2030    print down.line.21$ ;"Your move ... which direction?"
+        goto 2050
+2040    print down.line.21$ ;"Safe on the path ... which way?"
+2050    *fx15,0
+//
+//                Get keystroke, check for information display 
+//
+2060    key.press$ = get$ 
+        if  key.press$ ="E"  goto display.info@24000 
+2080    f%= val (key.press$ )
+        if  f%=0  goto 2060
+// ***************************************************************************
+//
+//                                Move player 
+//
+// ***************************************************************************
+2085    f%=f%+48
+2090    if  f%=49 player.x =last.player.x -1
+        player.y =last.player.y -1
+        goto end.move.code@2099
+2091    if  f%=50 player.x =last.player.x 
+        player.y =last.player.y -1
+        goto end.move.code@2099
+2092    if  f%=51 player.x =last.player.x +1
+        player.y =last.player.y -1
+        goto end.move.code@2099
+2093    if  f%=52 player.x =last.player.x +1
+        player.y =last.player.y 
+        goto end.move.code@2099 
+2094    if  f%=53 player.x =last.player.x +1
+        player.y =last.player.y +1
+        goto end.move.code@2099
+2095    if  f%=54 player.x =last.player.x 
+        player.y =last.player.y +1
+        goto end.move.code@2099
+2096    if  f%=55 player.x =last.player.x -1
+        player.y =last.player.y +1
+        goto end.move.code@2099
+2097    if  f%=56 player.x =last.player.x -1
+        player.y =last.player.y 
+        goto end.move.code@2099  
+2098    if  f%=57 player.x =last.player.x 
+        player.y =last.player.y 
+// ***************************************************************************
+//
+//                              Post Moving Code 
+//
+// ***************************************************************************
+2099    turns =turns +1
+        print down.line.21$ ;spaces.39$  
+//
+//                 Check if space (Q1 = 0) or swamp (Q1 = 10) 
+//
+2110    player.graphic =230
+        gfx1 = fn test(player.x ,player.y ,5)
+        gfx2 = fn test(player.x ,player.y ,6)
+        if  gfx1 =0  or  gfx1 =10  goto check.move.feasible@2190 
+//
+//                         Check if castle (Q1 = 231) 
+//
+2120    if  gfx1 =231  goto in.castle@28000   
+//
+//    Check if frame (219,189) wall in tower (255) or tree (107) & reject 
+//
+2130    if  (gfx1 =219  and  gfx2 =189)  or  gfx1 =255  or  gfx1 =107 turns =turns -1
+        goto next.cmd@2030
+//
+// Check if forest.t (148) zaexon.t (219,231) swamp.t (171) building.t (107) 
+//
+2140    if  gfx1 =148  or  (gfx1 =219  and  gfx2 =231)  or  gfx1 =171  or  gfx1 =85  goto move.to.new.area@9000
+//
+//                     Check if Door (189) or Exit (129) 
+//
+2150    if  gfx1 =189  or  gfx1 =129  goto exit.area@9090
+//
+//                            Check if Stairs (31) 
+//
+2160    if  gfx1 =31  goto use.stairs@15000
+//
+//              Check if water, or staying still in water (204) 
+//
+2170    if  gfx1 =204  or  (key.press$ ="9"  and  old.char.byte =204) player.graphic =241
+        stamina =stamina -20
+        if  stamina <=0  goto player.died@25000
+//
+//                          Check if a treasure (36) 
+//
+2180    if  gfx1 =36  goto found.treasure@2800
+// ***************************************************************************
+//
+//                              Move can be done 
+//
+// ***************************************************************************
+2190    gosub character.ident@31000
+        print  tab( last.player.x ,last.player.y ); chr$ (z)
+        old.char.byte = fn test(player.x ,player.y ,5)
+        last.player.x =player.x 
+        last.player.y =player.y 
+        print  tab( last.player.x ,last.player.y ); chr$ (player.graphic )
+//
+//                            Check if on the path 
+//
+2200    if  old.char.byte =4  or  old.char.byte =32  delay.factor =5
+        goto complete.move@2250
+//
+//                    Identify a monster or special square 
+//
+2210    rf = rnd (1)
+2220    if  rf <.33  goto fight.monster@3000
+2230    if  rf >.75  goto identify.special@2300
+2240    print down.line.21$ ;"Nothing of value ... search on"
+        delay.factor =80
+//
+//                             Complete the move 
+//
+2250    gosub  delay@16000
+2260    goto 2010
+// ***************************************************************************
+//
+//                         Identify a special square 
+//
+// ***************************************************************************
+2300    rf = rnd (6)
+//
+//                 Go to the appropriate randomly chosen area 
+//
+2310    on  rf   gosub circle.evil@2340,hoard.gold@2380,hoard.gold@2380,deep.magic@2410,deep.magic@2410,ancient.power@2440
+2320    delay.factor =80
+        gosub delay@16000  
+2330    goto 2010
+// ***************************************************************************
+//
+//                               Circle of Evil 
+//
+// ***************************************************************************
+2340    print down.line.21$ ;"A circle of evil ... depart in haste!"
+2350    combat.str =combat.str + int ((floor +1)/2)
+        psi.str =psi.str - int ((floor +1)/2)
+        stamina =stamina -20
+2360    if  stamina <=0  goto player.died@25000
+2370    return 
+// ***************************************************************************
+//
+//                         Hoard of Gold (2 chances) 
+//
+// ***************************************************************************
+2380    print down.line.21$ ;"A hoard of gold"
+2390    cash =cash + rnd (100)*floor +100
+2400    return 
+// ***************************************************************************
+//
+//                           Deep Magic (2 chances) 
+//
+// ***************************************************************************
+2410    print down.line.21$ ;"You feel the aura of the deep magic ..."
+2420    print  spc (8);"... all around you ..."
+2430    goto 2450
+// ***************************************************************************
+//
+//                               Ancient Power 
+//
+// ***************************************************************************
+2440    print down.line.21$ ;"... a place of ancient power ..."
+2450    psi.str =psi.str +2+ int (floor *magic.skill )
+        combat.str =combat.str +1+ int (floor *combat.increment )
+        stamina =stamina +25
+2460    return 
+// ***************************************************************************
+//
+//                               Found treasure 
+//
+// ***************************************************************************
+2800    print  tab( last.player.x ,last.player.y ); chr$ (32)
+        last.player.x =player.x 
+        last.player.y =player.y 
+        old.char.byte =0
+        print  tab( last.player.x ,last.player.y ); chr$ (230)
+//
+//                            Decide what treasure 
+//
+2810    rn= rnd (1)
+        print down.line.21$ ;spaces.39$ 
+//
+//                   Check for Helm of Evanna (treasure 2) 
+//
+2820    if  location =6  and  rn>0.95  and  treasure( 1)=6  and  treasure( 2)=0  and  rating >25 treasure( 2)=1
+        goto 2870 
+//
+//                       Check for Amulet (treasure 0) 
+//
+2830    if  location =5  and  rn>0.85  and  treasure( 0)=0 treasure( 0)=1
+        goto 2880
+//
+//                    Check for Amulet stone (treasure 1) 
+//
+2840    if  location =4  and  rn>0.7  and  treasure( 0)=1  and  treasure( 1)<6  and  floor >treasure( 1)  goto 2890
+2850    if  rn>0.43  print down.line.21$ ;"A worthless bauble"
+        goto 2940
+2860    print down.line.21$ ;"A precious stone!"
+        goto 2930
+//
+//                            Found Helm of Evanna 
+//
+2870    print down.line.21$ ;"You find the HELM OF EVANNA!"
+        goto 2930
+//
+//                             Found Empty Amulet 
+//
+2880    print down.line.21$ ;"The AMULET OF ALARIAN ... empty ..."
+        goto 2930
+//
+//                             Found Amulet Stone 
+//
+2890    print down.line.21$ ;"AN AMULET STONE ..."
+2900    delay.factor =60
+        delay.func$ ="D"
+        gosub delay@16000
+2910    if  rn>0.85  print  chr$ (10);"... but the wrong one!"
+        goto 2940
+//
+//                          Increment Amulet Stones 
+//
+2920    print  chr$ (10);"... THE STONE FITS!"
+        treasure( 1)=treasure( 1)+1
+//
+//                            Some arbitrary cash 
+//
+2930    cash =cash +100*(treasure( 0)+treasure( 1)+treasure( 2)+floor )
+2940    delay.factor =80
+        gosub delay@16000
+2950    goto 2010
+// ***************************************************************************
+//
+//                            Fight with a monster 
+//
+// ***************************************************************************
+3000    print down.line.21$ ;"** BEWARE ... thou hast encountered **"
+3010    monster.strength =0
+        monster.magic =0
+        monster.flag =1
+//
+//                   Choose a monster, check for nasty ones 
+//
+3020    rf = rnd (17)-1
+        if  rf >9  and   rnd (1)>0.85  goto select.monster@3020  
+//
+//                      Check for Special Water Monsters 
+//
+3030    if  gfx1 =204  or  old.char.byte =204 rf = rnd (2)+16
+//
+//                        Balrog (16) fairly unlikely 
+//
+3040    if  rf =16  and   rnd (1)<0.7  goto select.monster@3020
+//
+//                       Ring Wraith only on top floor 
+//
+3050    if  floor <5  and  rf =15  goto select.monster@3020
+//
+//                            Extract where it is 
+//
+3060    monster.Loc$ = left$( monster$( rf ),1)
+//
+//                      Check it is a permitted monster 
+//
+3065    fl1%=0
+3070    for  i%=1  to   len (current.Monster$ )
+3080    if   mid$( current.Monster$ ,i%,1)=monster.Loc$  fl1%=1
+3090    next 
+//
+//                    If not allowed here, then try again 
+//
+3100    if  fl1%=0  goto select.monster@3020
+//
+//                            Extract actual name 
+//
+3110    monster.name$ = right$( monster$( rf ), len (monster$( rf ))-1)
+//
+//                             Generate strength 
+//
+3120    if  monster.hp( rf )=0  goto 3150
+3130    monster.strength = int ((combat.str *0.3)+monster.hp( rf )*floor ^0.2/( rnd (1)+1))
+//
+//                               Generate magic 
+//
+3140    if  monster.mp( rf )=0  goto 3160
+3150    monster.magic = int (monster.mp( rf )*floor ^0.2/( rnd (1)+1))
+//
+//                     Calculate experience you will gain 
+//
+3160    experience.to.gain = int ((rf +1)*(floor ^1.5))
+3170    if  rf >23 experience.to.gain = int ((rf -22)*floor ^1.5)
+//
+//                      Announce arrival of the monster 
+//
+3180    print  chr$ (10); left$( right.30$ ,12-( len (monster.name$ ))/2);"an evil ";monster.name$ 
+3190    delay.factor =40
+        gosub delay@16000  
+//
+//                       Your chance to attack first  ? 
+//
+3500    if   rnd (1)<0.6  goto monster.attacks@4000    
+//
+//                           Ask attack or retreat 
+//
+3510    print down.line.21$ ;"You have surprise ... attack or retreat"
+3520    gosub get.key.time.limit@1700
+3530    if  key.press$ ="R"  goto retreat@3900
+3540    if  temp.var =1  goto 3600
+//
+//                    Not quick enough,monster goes anyway 
+//
+3550    if  key.press$ <>"A"  goto monster.attacks@4000
+3560    delay.factor =150
+        delay.func$ ="D"
+        gosub delay@16000 
+// ***************************************************************************
+//
+//                              Player has a go 
+//
+// ***************************************************************************
+3570    print down.line.21$ ;"*** STRIKE QUICKLY ***"
+//
+//                               Get keystroke 
+//
+3580    gosub get.key.time.limit@1700
+3590    if  temp.var =0  goto do.attack.command@3620
+3600    print down.line.21$ ;"* TOO SLOW ... TOO SLOW *"
+3610    defeated.flag =0
+        goto end.attack@3830
+//
+//                             Attack key pressed 
+//
+3620    fight.factor =39* ln (experience )/3.14 
+//
+//                              Check cast spell 
+//
+3630    if  key.press$ ="S"  goto cast.spell@4500
+//
+//                Trying to hit magic monsters, can't be done 
+//
+3640    if  monster.strength =0  print down.line.21$ ;"Your sword avails you nought here"
+        goto end.attack@3830
+//
+//                     Attack costs energy, check if dead 
+//
+3650    stamina =stamina -1
+3660    if  stamina <=0  print down.line.21$ ;"You fatally exhaust yourself"
+        goto player.died@25000 
+//
+//                        Deduce attack effectiveness 
+//
+3670    rf = rnd (1)*10
+3680    if  key.press$ ="H"  and  (rf <5  or  combat.str >monster.strength *4) zz=2
+        goto hit.monster@3730
+3690    if  key.press$ ="B"  and  (rf <7  or  combat.str >monster.strength *4) zz=1
+        goto hit.monster@3730  
+3700    if  key.press$ ="L"  and  (rf <9  or  combat.str >monster.strength *4) zz=0.3
+        goto hit.monster@3730
+//
+//                                  Missed ! 
+//
+3710    print down.line.21$ ;"YOU MISSED IT!"
+3720    defeated.flag =0
+        goto end.attack@3830
+//
+//                hit the monster,check for defeated last time 
+//
+3730    if  defeated.flag =1 damage =monster.strength + rnd (9)
+        defeated.flag =0
+        goto 3760
+//
+//                           Calculate damage done 
+//
+3740    damage = int ((((combat.str *50* rnd (1))-(10*monster.strength )+fight.factor )/100)*zz)
+        if  damage <0 damage =0
+//
+//                        Check if staggering defeated 
+//
+3750    if  combat.str >(monster.strength -damage )*4 defeated.flag =1
+3760    monster.strength =monster.strength -damage 
+//
+//                              Display results 
+//
+3770    print down.line.21$ ;"A HIT ..."
+3780    delay.factor =60
+        delay.func$ ="D"
+        gosub delay@16000
+//
+//                               No damage done 
+//
+3790    if  damage =0  print down.line.21$ ; chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9);" BUT ... NO DAMAGE"
+        defeated.flag =0
+        goto end.attack@3830 
+//
+//                         Display Damage,Check Dead 
+//
+3800    print down.line.21$ ; chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9);damage ;" DAMAGE ..."
+        if  monster.strength <=0  goto killed.monster@3860 
+3810    if  defeated.flag =1 delay.factor =30
+        delay.func$ ="D"
+        gosub delay@16000 
+3820    if  defeated.flag =1  print  chr$ (10);"THE ";monster.name$ ;" STAGGERS DEFEATED"
+//
+//                                Attack ends 
+//
+3830    delay.factor =110
+        gosub delay@16000
+//
+//                Staggering defeated, try again straight away 
+//
+3840    if  defeated.flag =1  goto player.attack@3570
+3850    goto monster.attacks@4000
+// ***************************************************************************
+//
+//                            The Monster is Dead 
+//
+// ***************************************************************************
+3860    print down.line.21$ ; chr$ (10); chr$ (10);"... KILLING THE MONSTER ..."
+3870    experience =experience +experience.to.gain 
+        defeated.flag =0
+        monster.flag =0
+3880    delay.factor =80
+        gosub delay@16000 
+3890    goto 2010
+// ***************************************************************************
+//
+//                               Try to retreat 
+//
+// ***************************************************************************
+3900    print down.line.21$ ;"KNAVISH COWARD!"
+        monster.flag =0
+3910    goto 3880
+// ***************************************************************************
+//
+//                          It's the monsters turn ! 
+//
+// ***************************************************************************
+4000    print down.line.21$ ;"THE CREATURE ATTACKS ..."
+4010    delay.factor =50
+        delay.func$ ="W"
+        gosub delay@16000 
+//
+//       Check for magic attack, either entirely magic or mainly magic 
+//
+4020    if  monster.strength =0  goto magic.monster@4300
+4030    if  monster.strength <monster.magic   and  monster.magic >6  and   rnd (1)<0.5  goto magic.monster@4300 
+//
+//                               Use up energy 
+//
+4040    monster.strength =monster.strength -1
+        if  monster.strength <=0  goto last.energy@4240
+//
+//                       Decide where the monster hits 
+//
+4050    rf = rnd (10)
+4060    on  rf   goto 4070,4080,4090,4100,4110,4110,4120,4120,4130,4140  
+4070    print down.line.21$ ;"IT SWINGS AT YOU ... AND MISSES"
+        goto end.monster.attack@4280
+4080    print down.line.21$ ;"YOUR BLADE DEFLECTS THE BLOW"
+        goto end.monster.attack@4280
+4090    print down.line.21$ ;"... BUT HESITATES, UNSURE ..."
+        goto end.monster.attack@4280
+4100    zz=3
+        print down.line.21$ ;"IT STRIKES YOUR HEAD!"
+        goto monster.hits@4150
+4110    zz=1.5
+        print down.line.21$ ;"YOUR CHEST IS STRUCK!"
+        goto monster.hits@4150
+4120    zz=1
+        print down.line.21$ ;"A STRIKE TO YOUR SWORDARM!"
+        goto monster.hits@4150
+4130    zz=1.3
+        print down.line.21$ ;"A BLOW TO YOUR BODY!"
+        goto monster.hits@4150
+4140    zz=0.5
+        print down.line.21$ "IT CATCHES YOUR LEGS!"
+//
+//                           Monster has connected 
+//
+4150    delay.factor =60
+        delay.func$ ="D"
+        gosub delay@16000 
+//
+//                           Calculate damage done 
+//
+4160    g= int ((((monster.strength *75* rnd (1))-(10*combat.str )-fight.factor )/100)*zz) 
+4170    if  g<0 g=0
+        print down.line.21$ ;"... SAVED BY YOUR ARMOUR!"; spc (2)
+        goto end.monster.attack@4280
+4180    stamina =stamina -g
+4190    if  g>9 combat.str = int (combat.str -g/6)
+//
+//                             Check shaken only 
+//
+4200    if  g=0  print down.line.21$ "SHAKEN ...... BUT NO DAMAGE DONE"
+        goto end.monster.attack@4280
+//
+//                       Display damage, check if dead 
+//
+4210    print down.line.21$ ;"YOU TAKE ..."; spc (7); chr$ (8); chr$ (8); chr$ (8); chr$ (8); chr$ (8); chr$ (8);g;" DAMAGE ..."; spc (6)
+4220    if  combat.str <=0  or  stamina <=0  goto player.died@25000
+4230    goto end.monster.attack@4280
+//
+//                       Used up last energy attacking 
+//
+4240    print down.line.21$ ;"...USING ITS LAST ENERGY IN THE ATTEMPT"
+4250    experience = int (experience +experience.to.gain /2)
+        monster.flag =0
+4260    delay.factor =400
+        gosub delay@16000
+4270    goto 2010
+//
+//                            Monster attack over 
+//
+4280    delay.factor =100
+        gosub delay@16000 
+4290    goto player.attack@3570
+// ***************************************************************************
+//
+//                            Magic monster attack 
+//
+// ***************************************************************************
+4300    print down.line.21$ ;"... HURLING A LIGHTNING BOLT AT YOU!"
+//
+//            Calculate lightning bolt damage, deduct magic points 
+//
+4310    g= int (((180*monster.magic * rnd (1))-(psi.str +fight.factor ))/100)
+        monster.magic =monster.magic -5
+        if  g<9 monster.magic =monster.magic - int (g/5)
+4320    delay.factor =80
+        delay.func$ ="W"
+        gosub delay@16000 
+//
+//                     Check if effort killed the monster 
+//
+4330    if  monster.magic <=0 monster.magic =0
+        goto last.energy@4240
+//
+//                            Check if bolt misses 
+//
+4340    if   rnd (1)<0.25  goto bolt.missed@4410
+//
+//                          Check if shield protects 
+//
+4350    if  g<=0 g=0
+        goto shield.protects@4400
+//
+//                            Bolt strikes player 
+//
+4360    print down.line.21$ ;"IT STRIKES HOME!"
+4370    delay.factor =110
+        gosub delay@16000 
+4380    stamina =stamina -g
+        if  g>9 psi.str = int (psi.str -g/4)
+4390    goto 4210
+//
+//                           Shield protects player 
+//
+4400    print down.line.21$ ;"YOUR PSI SHIELD PROTECTS YOU"
+        goto end.monster.attack@4280
+//
+//                                Bolt missed 
+//
+4410    print down.line.21$ ;"... MISSED YOU!"
+        goto end.monster.attack@4280
+// ***************************************************************************
+//
+//                            Spellcasting section 
+//
+// ***************************************************************************
+4500    print down.line.21$ ;"Which spell seek ye?"
+        gosub get.key.time.limit@1700
+//
+//                        Not fast enough on the keys 
+//
+4510    if  temp.var =1  goto 3600
+//
+//                            Check spell legality 
+//
+4520    if   val (key.press$ )>0  and   val (key.press$ )<=3  goto 4540
+4530    print down.line.21$ ;"No such spell ..."; spc (5)
+        goto end.spell@4640
+//
+//                          Beast magic too powerful 
+//
+4540    if  4*psi.str * rnd (1)<=monster.magic   goto beast.psi.shield@4590
+//
+//                                Select Spell 
+//
+4550    on   val (key.press$ )  gosub Sleep.Spell@5000,Psi.Lance.Spell@5200,Sword.Blast.Spell@5400
+//
+//                                Spell Result 
+//
+4560    on  spell.result   goto 4620,end.spell@4640,4660,4570,4600,4580,beast.psi.shield@4590
+4570    print down.line.21$ ;"It is beyond you "; spc (5)
+        goto end.spell@4640
+4580    print down.line.21$ "But the spell fails ...!"
+        goto end.spell@4640 
+//
+//                            Beasts PSI too high 
+//
+4590    print down.line.21$ ;"No use, the beast's psi shields it"
+        goto end.spell@4640
+//
+//                               Out of energy 
+//
+4600    print down.line.21$ ;"The spell saps all your strength"
+4610    goto  player.died@25000
+4620    delay.factor =100
+        gosub delay@16000
+4630    goto 2010
+//
+//                             End of spell code 
+//
+4640    delay.factor =60
+        gosub delay@16000
+4650    goto monster.attacks@4000
+4660    delay.factor =60
+        gosub delay@16000
+4670    goto player.attack@3570
+// ***************************************************************************
+//
+//                              Cast Sleep Spell 
+//
+// ***************************************************************************
+5000    stamina =stamina -5
+        if  stamina <=0 spell.result =5
+        return 
+5010    print down.line.21$ ;"SLEEP YOU FOUL FIEND THAT I MAY ESCAPE"
+5020    print "AND PRESERVE MY MISERABLE SKIN"
+5030    delay.factor =180
+        gosub delay@16000
+5040    print down.line.21$ ;"THE CREATURE STAGGERS ..."
+5050    delay.factor =40
+        delay.func$ ="D"
+        gosub delay@16000  
+//
+//                          50/50 chance of working 
+//
+5060    if   rnd (1)<0.5  goto 5090
+5070    print "AND COLLAPSES ... STUNNED"
+5080    experience = int (experience +experience.to.gain /2)
+        monster.flag =0
+        spell.result =1
+        return 
+5090    print "BUT RECOVERS WITH A SNARL!"
+5100    spell.result =2
+        return 
+// ***************************************************************************
+//
+//                               Cast PSI Lance 
+//
+// ***************************************************************************
+5200    if  monster.strength >stamina   or  psi.str <49  or  experience <1000 spell.result =4
+        return 
+//
+//                    Lose stamina from spell, check dead 
+//
+5210    stamina =stamina -10
+        if  stamina <=0 spell.result =5
+        return 
+//
+//                             Only works on PSI 
+//
+5220    if  monster.magic =0  print down.line.21$ +"THIS BEAST HAS NO PSI TO ATTACK"
+        spell.result =2
+        return 
+5230    print down.line.21$ ;"WITH MY MIND I BATTLE THEE FOR MY LIFE"
+5240    delay.factor =120
+        gosub delay@16000
+//
+//                             Check for misfire 
+//
+5250    rf = rnd (1)
+        if  rf <0.4  and  monster.magic >10 spell.result =6
+        return 
+//
+//                              Calculate damage 
+//
+5260    damage = int ((((combat.str *50*rf )-5*(monster.strength +monster.magic )+fight.factor )/50)/4)
+5270    if  damage <=0 damage =0
+        spell.result =7
+        return 
+5280    print down.line.21$ ;"THE PSI-LANCE CAUSES ";damage *2;" DAMAGE"
+//
+//                         Adjust strength and magic 
+//
+5290    monster.magic =monster.magic -3*damage 
+        if  monster.magic <=0 monster.magic =0
+5300    monster.strength =monster.strength -damage 
+        if  monster.strength <=0 monster.strength =0
+5310    if  (monster.strength +monster.magic )>0 spell.result =2
+        return 
+//
+//                                 It's dead 
+//
+5320    print  chr$ (10);"... KILLING THE CREATURE"
+5330    experience =experience +experience.to.gain 
+        monster.flag =0
+        spell.result =1
+        return 
+// ***************************************************************************
+//
+//                           Cast Sword Blast Spell 
+//
+// ***************************************************************************
+5400    if  psi.str <77  or  experience <5000 spell.result =4
+        return 
+//
+//                            Uses lots of stamina 
+//
+5410    stamina =stamina -20
+        if  stamina <=0 spell.result =5
+        return 
+5420    print down.line.21$ ;"WITH THE MIGHT OF MY SWORD I SMITE THEE"
+5430    print "WITH THE POWER OF MY SPELL I CURSE THEE"
+5440    print "BURN YE SPAWN OF HELL AND SUFFER ..."
+5450    delay.factor =240
+        gosub delay@16000
+5460    print down.line.21$ ;"A BOLT OF ENERGY LASHES AT THE BEAST .."
+5470    delay.factor =80
+        delay.func$ ="W"
+        gosub delay@16000
+//
+//                                Check if hit 
+//
+5480    if   rnd (1)>(psi.str /780)*(5-magic.skill )  print down.line.21$ ;"MISSED IT!"
+        spell.result =2
+        return 
+//
+//                              Calculate damage 
+//
+5490    damage = int ((combat.str +psi.str * rnd (1))-(10*monster.magic * rnd (1)))
+5500    if  damage <=0 damage =0
+        spell.result =7
+        return 
+//
+//                Reduce strength, then if that is zero,magic 
+//
+5510    if  monster.strength =0 monster.magic =monster.magic -damage 
+        goto 5530
+5520    monster.strength =monster.strength -damage 
+        if  damage >10 monster.magic = int (monster.magic -(damage /3))
+//
+//                               Check if dead 
+//
+5530    print down.line.21$ ;"IT STRIKES HOME CAUSING ";damage ;" DAMAGE"; chr$ (32); chr$ (32);"!"
+5540    if  (monster.strength +monster.magic )<=0  goto 5570
+5550    delay.factor =80
+        delay.func$ ="D"
+        gosub delay@16000
+5560    spell.result =2
+        return 
+//
+//                             Sword Spell worked 
+//
+5570    print  chr$ (10);"THE BEAST DIES SCREAMING!"
+5580    experience =experience +experience.to.gain 
+        monster.flag =0
+        spell.result =1
+        return 
+// ***************************************************************************
+//
+//                             Shift to new area 
+//
+// ***************************************************************************
+9000    if  gfx1 =85  and  old.char.byte =204  print down.line.21$ ;"You cannot enter this way ..."
+        goto entry.failed@9110
+//
+//                          Create level information 
+//
+9010    for  i%=2 to 7
+9020    layout( i%)=0
+//
+//                             Create wall counts 
+//
+9030    wall.heights( i%)= rnd (5)+3
+9040    if  wall.heights( i%)=5  goto 9030
+9050    next 
+//
+//                         Save position on main map 
+//
+9060    if  location =1 map.player.x =last.player.x 
+        map.player.y =last.player.y 
+9070    layout( 2)= rnd (30)
+9080    entry.turn =turns 
+        goto 9130
+// ***************************************************************************
+//
+//           Exit current area, can't go through wall or from water 
+//
+// ***************************************************************************
+9090    if  turns >entry.turn + rnd (6)  goto 9130
+//
+//                     Can't exit an area immediately.... 
+//
+9100    print down.line.21$ ;"The way is barred"
+//
+//                                Can't enter 
+//
+9110    turns =turns -1
+        stamina =stamina -10
+        delay.factor =100
+        delay.func$ ="W"
+        gosub delay@16000
+9120    goto 2010
+//
+//                             Decide what to do 
+//
+9130    stamina =stamina -10
+        print  tab( last.player.x ,last.player.y ); chr$ (32)
+        print  tab( player.x ,player.y ); chr$ (player.graphic )
+//
+//                        Return to main map (exiting) 
+//
+9140    if  gfx1 =129 location =1
+        floor =1
+//
+//                             Leave Black Tower 
+//
+9150    if  gfx1 =189  and  location =4 location =1
+        floor =1
+//
+//              Leave Lair/Temple to Swamp/Forest respectively. 
+//
+9160    if  gfx1 =189  and  location =5  or  location =6 location =location -3
+        floor =floor -4
+        last.player.x =swfo.player.x 
+        last.player.y =swfo.player.y 
+//
+//                                Enter swamp 
+//
+9170    if  gfx1 =171 location =2
+        floor =2
+//
+//                                Enter forest 
+//
+9180    if  gfx1 =148 location =3
+        floor =2
+9190    if  gfx1 =148  or  gfx1 =171 d2$= left$( down.line.21$ , rnd (9))
+        r2$= left$( right.30$ ,layout( 2))
+//
+//                             Enter Black Tower 
+//
+9200    if  (gfx1 =219  and  gfx2 =231) location =4
+        floor =2
+//
+//                   Entering Lair/Temple from Forest/Swamp 
+//
+9210    if  gfx1 =85 location =location +3
+        floor =floor +4
+        swfo.player.x =last.player.x 
+        swfo.player.y =last.player.y 
+//
+//    Goto loc 1:Main Area,2:Swamp 3:Forest 4:Black Tower 5:Temple 6:Lair 
+//
+9220    on  location   gosub  create.display@10000,create.swamp@12000,create.forest@12010,create.tower@14000,create.lair.and.temple@14010,create.lair.and.temple@14010
+9230    delay.factor =5
+        gosub delay@16000
+9240    goto main.loop@2000
+// ***************************************************************************
+//
+//                        Create display (main screen) 
+//
+// ***************************************************************************
+10000   print  chr$ (12)
+        current.Monster$ ="VAEGH"
+        floor =1
+        location =1
+//
+//               Draw the frame using the edge character (224) 
+//
+10010   temp_aa$ = string$( 39, chr$ (224))
+10030   print  chr$ (30);temp_aa$ 
+10040   for  i%=1 to 12
+10050   print  chr$ (224); spc (37); chr$ (224)
+10060   next 
+10070   print temp_aa$ 
+//
+//                       Check if data already created 
+//
+10080   if  display( 0)<>0  goto 10190
+//
+//                    Calculate start pos (also a castle) 
+//
+10090   last.player.x =1
+        last.player.y = rnd (12)
+        player.x =last.player.x 
+        player.y =last.player.y 
+10100   curr.y =last.player.y 
+        map.player.x =last.player.x 
+        map.player.y =last.player.y 
+        player.x =last.player.x 
+        player.y =last.player.y 
+        display( 0)=last.player.y 
+        display( 1)=225
+//
+//                      Calculate the steps of the path 
+//
+10110   for  i%=2 to 72  step 2
+10120   if   rnd (1)>0.5 print.char =226
+        vert.pos =curr.y -1
+        goto 10130
+10125   print.char =227
+        vert.pos =curr.y +1
+//
+//                           Path must be in bounds 
+//
+10130   if  vert.pos >12  or  vert.pos <1  goto 10120
+10140   display( i%+1)=print.char 
+10150   if  i%>2  and  display( i%+1)<>display( i%-1) vert.pos =curr.y 
+10160   display( i%)=vert.pos 
+        curr.y =vert.pos 
+        print  tab( i%/2+1,display( i%)); chr$ (display( i%+1))
+10170   next 
+//
+//          Draw the contents. Override last path char with a castle 
+//
+10180   display( 73)=225
+10190   for  i%=0 to 72 step 2
+10200   print  tab( i%/2+1,display( i%)); chr$ (display( i%+1))
+10210   next 
+//
+//                  Check if the contents are already drawn 
+//
+10220   if  loc.x( 0)<>0  goto 10280
+//
+//                       Create the main area contents 
+//
+10230   for  i%=0 to 4
+//
+//                    Find a blank spot for each character 
+//
+10240   loc.x( i%)= rnd (37)
+        loc.y( i%)= rnd (12)
+10250   player.graphic =23488+8*loc.x( i%)+320*loc.y( i%)
+10260   if  ?player.graphic <>0  or  ?(player.graphic +8)<>0  goto 10240
+10270   next 
+//
+//      SXY(0,1) are forest,SXY(2,3) are swamp,SXY(4) is Zaexon's tower 
+//
+10280   print  tab( loc.x( 0),loc.y( 0)); chr$ (228)
+        print  tab( loc.x( 0)+1,loc.y( 0)); chr$ (228)
+        print  tab( loc.x( 1),loc.y( 1)); chr$ (228)
+        print  tab( loc.x( 1)+1,loc.y( 1)); chr$ (228)
+10290   print  tab( loc.x( 2),loc.y( 2)); chr$ (233)
+        print  tab( loc.x( 2)+1,loc.y( 2)); chr$ (233)
+        print  tab( loc.x( 3),loc.y( 3)); chr$ (233)
+        print  tab( loc.x( 3)+1,loc.y( 3)); chr$ (233)
+10300   print  tab( loc.x( 4),loc.y( 4)); chr$ (229)
+10310   last.player.x =map.player.x 
+        last.player.y =map.player.y 
+        player.x =last.player.x 
+        player.y =last.player.y 
+10320   return 
+// ***************************************************************************
+//
+//                                Create Swamp 
+//
+// ***************************************************************************
+12000   current.Monster$ ="AFL"
+        print.char =236
+        goto 12020 
+// ***************************************************************************
+//
+//                               Create Forest 
+//
+// ***************************************************************************
+12010   current.Monster$ ="FAEHL"
+        print.char =234
+12020   old.char.byte =0
+//
+//                        Fill map with tree or swamp 
+//
+12030   print  chr$ (12)
+12040   for  i%=1 to 200
+12050   y%= rnd (14)-1
+        x%= rnd (39)-1
+12060   print  tab( x%,y%); chr$ (print.char )
+12070   next 
+//
+//                  Draw building surrounded by water on map 
+//
+12080   print  chr$ (30);d2$;r2$; chr$ (9); chr$ (9); chr$ (238); chr$ (238)
+12090   print r2$; chr$ (9); chr$ (238); chr$ (238); chr$ (238); chr$ (238); chr$ (238)
+12100   print r2$; chr$ (238); chr$ (238); chr$ (32); chr$ (32); chr$ (238); chr$ (238)
+12110   print r2$; chr$ (238); chr$ (238); chr$ (232); chr$ (32); chr$ (238); chr$ (238); chr$ (238)
+12120   print r2$; chr$ (9); chr$ (238); chr$ (238); chr$ (238); chr$ (238); chr$ (9); chr$ (238); chr$ (238)
+12130   print r2$; chr$ (9); chr$ (9); chr$ (9); chr$ (238); chr$ (238)
+12140   print r2$; chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (238)
+12150   temp_aa$ = string$( 40, chr$ (240))
+12155   print  chr$ (30);temp_aa$ ;
+12160   bb$= string$( 38, chr$ (9))
+12165   for  i%=1 to 13
+12170   print  chr$ (240);bb$; chr$ (240);
+12180   next 
+12190   print temp_aa$ 
+//
+//                     Set player position at the bottom 
+//
+12200   print  tab( 20,13); chr$ (32)
+        player.x =20
+        player.y =13    
+//
+//                     If leaving castle to swamp/forest 
+//
+12210   if  gfx1 =189 last.player.x =swfo.player.x 
+        last.player.y =swfo.player.y 
+        player.x =last.player.x 
+        player.y =last.player.y 
+12220   return 
+// ***************************************************************************
+//
+//                             Create Black Tower 
+//
+// ***************************************************************************
+14000   current.Monster$ ="CAGE"
+        p=0
+        wall.height =wall.heights( floor )
+        old.char.byte =32
+        goto 14015
+// ***************************************************************************
+//
+//                           Create Lair and Temple 
+//
+// ***************************************************************************
+14010   current.Monster$ ="CBE"
+        p=0
+        wall.height =wall.heights( floor )
+        old.char.byte =32
+        layout( floor )=layout( 2)
+//
+//                      Draw the outline of the building 
+//
+14015   temp_aa$ = string$( 21, chr$ (235))
+14020   print  chr$ (12); chr$ (9); chr$ (9);temp_aa$ 
+14030   for  i%=1 to 13
+14040   print  chr$ (9); chr$ (9); chr$ (235); spc (19); chr$ (235) 
+14050   next 
+14060   print  chr$ (9); chr$ (9);temp_aa$ 
+//
+//                     Skip non-required room information 
+//
+14070   restore 
+        for  i%=1 to  layout( floor )
+14080   read  v
+        if  v=100  restore 
+14090   next 
+//
+//                          Read in Room Data to D() 
+//
+14100   vert.pos =1
+//
+//                   Read in a new set of wall x positions 
+//
+14110   for  j%=1 to 3
+14120   read  wall.x( j%)
+        p=p+1
+//
+//                        Special Case if End of List 
+//
+14130   if  wall.x( j%)=100  restore 
+        wall.x( j%)=3
+        p=p+1
+14140   next 
+14145   x=2
+        walls.complete =0
+14150   for  i%=0  to  wall.height 
+        print.char =235
+        if  walls.complete =1  goto end.draw.vertical@14240
+//
+//                  If reached the bottom, mark as complete 
+//
+14160   curr.y =vert.pos +i%
+        if  curr.y >13 walls.complete =1
+        goto end.draw.vertical@14240
+//
+//                            First wall,door at 1 
+//
+14170   if  i%=1 print.char =32
+14180   if  wall.x( 1)=0 print.char =235
+        goto 14200
+14190   print  tab( x+wall.x( 1),curr.y ); chr$ (print.char )
+        print.char =235
+//
+//                           Second wall,door at 3 
+//
+14200   if  i%=3 print.char =32 
+14210   print  tab( x+wall.x( 1)+wall.x( 2),curr.y ); chr$ (print.char )
+        print.char =235
+//
+//                            Third wall,door at 2 
+//
+14220   if  i%=2 print.char =32 
+14230   print  tab( x+wall.x( 1)+wall.x( 2)+wall.x( 3),curr.y ); chr$ (print.char )
+        print.char =235
+//
+//                           Vertical draw complete 
+//
+14240   next 
+//
+//                       Done the whole vertical bit ? 
+//
+14245   if  walls.complete =1  goto wall.complete@14260
+//
+//                No, go and try again to finish the verticals 
+//
+14250   vert.pos =vert.pos +wall.height +1
+        goto read.new.set@14110
+//
+//                     Draw the horizontal line(s) across 
+//
+14260   vert.pos =0
+//
+//                        Maximum of 4 vertical lines 
+//
+14270   for  j%=1 to 4
+//
+//                      Calculate where vertical line is 
+//
+14280   curr.y =vert.pos +j%*(wall.height +1)
+//
+//                     If off the bottom, don't continue 
+//
+14285   if  curr.y >13  goto 14340
+//
+//                  Work from left to right across the wall 
+//
+14290   for  k%=3  to  21
+14310   print  tab( k%,curr.y ); chr$ (print.char )
+//
+//                             Draw some openings 
+//
+14320   if  k%=4  or  k%=3*wall.height +2  or  k%=19  print  tab( k%,curr.y ); chr$ (32)
+        print  tab( k%,curr.y -1); chr$ (32)
+        print  tab( k%,curr.y +1); chr$ (32) 
+14330   next k%
+14340   next j%
+//
+//                 If Vounim's Lair or Temple, then no stairs 
+//
+14350   if  location =5  or  location =6  goto draw.door@14380
+//
+//             Draw stairs at alternate place on alternate floors 
+//
+14360   if  floor /2= int (floor /2)  print  tab( x+19,1); chr$ (231)
+        goto draw.door@14380
+14370   print  tab( x+1,13); chr$ (231)
+//
+//                           Draw the door in place 
+//
+14380   if  floor =2  or  location =5  or  location =6  print  tab( 7,13); chr$ (32)
+        print  tab( 7,14); chr$ (237)  
+//
+//                              Set Entry point 
+//
+14390   if  layout( 3)=0 player.x =7
+        player.y =13
+14400   if  location =5  goto 14470
+14410   if  location =6  goto 14450
+//
+//                          Print "Tower of Zaexon" 
+//
+14420   print  chr$ (30);right.20$ ; chr$ (10); chr$ (10); chr$ (10); chr$ (10); chr$ (9); chr$ (9); chr$ (9);"THE BLACK TOWER"
+14430   print right.20$ ; chr$ (9); chr$ (9); chr$ (9); spc (3);"OF ZAEXON"
+14440   print right.20$ ; chr$ (10); chr$ (10); chr$ (10); chr$ (9); chr$ (9); chr$ (9); spc (3);"FLOOR ";floor -1
+        goto 14490
+//
+//                           Print "Vounim's Lair" 
+//
+14450   print  chr$ (30);right.20$ ; chr$ (10); chr$ (10); chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9);" VOUNIM'S "
+14460   print right.20$ ; chr$ (9); chr$ (9); chr$ (9); chr$ (9); chr$ (9);"   LAIR   "
+        goto 14490
+//
+//                        Print "Temple of Y'Naigoth" 
+//
+14470   print  chr$ (30);right.20$ ; chr$ (10); chr$ (10); chr$ (9); chr$ (9); chr$ (9); chr$ (9);"THE TEMPLE OF"
+14480   print right.20$ ; chr$ (9); chr$ (9); chr$ (9); chr$ (9);"  Y'NAGIOTH  "
+//
+//                        Set up layout for next floor 
+//
+14490   layout( floor +1)=layout( floor )+p
+//
+//         If on floor 4 or higher, then there's some treasure to get 
+//
+14500   if  floor <4  or   rnd (1)<0.3  return 
+//
+//                              Create treasure 
+//
+14510   for  i%=1  to   rnd (4)+2
+//
+//                             Find open position 
+//
+14520   n1= rnd (19)+2
+14530   n2= rnd (13)
+14540   if   fn test(n1,n2,5)<>0  goto 14520
+//
+//                          Draw treasure on the map 
+//
+14550   print  tab( n1,n2); chr$ (239)
+14560   next 
+14570   return 
+// ***************************************************************************
+//
+//                            Go up or down stairs 
+//
+// ***************************************************************************
+15000   print  tab( player.x ,player.y ); chr$ (230)
+        print  tab( last.player.x ,last.player.y ); chr$ (32)
+//
+//                         Get the direction required 
+//
+15010   print down.line.21$ ;"A stairway ... up or down?"
+        temp.var =floor 
+15020   keys.group$ ="UD"
+        gosub get.key.from.group@1500
+15030   if  key.press$ ="U" floor =floor +1
+        goto 15050
+15040   floor =floor -1
+15050   if  floor >7  or  floor <2  goto 15080
+15060   delay.factor =110
+        delay.func$ ="D"
+        gosub delay@16000
+15070   goto 9220
+//
+//                        Can't go up or down further 
+//
+15080   print down.line.21$ ;"These stairs are blocked "
+15090   delay.factor =60
+        delay.func$ ="D"
+        gosub delay@16000
+15100   floor =temp.var 
+        goto 15010
+// ***************************************************************************
+//
+//          Delay, with optional clear (DL$="d"), refresh (DL$="w") 
+//
+// ***************************************************************************
+16000   for  dl=1 to (10*delay.factor *speed.ctrl )
+16010   next  dl
+16020   if  delay.func$ ="D" delay.func$ =""
+        return 
+16030   print  down.line.21$ ;spaces.39$ 
+16040   print spaces.39$ 
+16050   print spaces.39$ 
+16060   if  delay.func$ ="W" delay.func$ =""
+        return 
+//
+//                          Force values to min/max 
+//
+16070   if  combat.str >77- int (2*magic.skill ^2.5) combat.str =77- int (2*magic.skill ^2.5)  
+16080   if  psi.str <7 psi.str =7
+16090   if  psi.str > int (42*(magic.skill +1)^ ln (magic.skill ^3.7))+75 psi.str = int (42*(magic.skill +1)^ ln (magic.skill ^3.7))+75 
+16100   if  stamina >125-( int (magic.skill )*12.5) stamina =125-( int ( int (magic.skill )*12.5))
+//
+//                            Display Information 
+//
+16110   print down.line.16$ ; chr$ (11);name$ ,class$   
+16120   print "Treasure   =";cash 
+16130   print "Experience =";experience 
+16140   print "Turns      =";turns 
+16150   print down.line.16$ ;right.20$ ;"Combat str ="; spc (4); chr$ (8); chr$ (8); chr$ (8); chr$ (8);combat.str  
+16160   print right.20$ ;"Psi power  ="; spc (4); chr$ (8); chr$ (8); chr$ (8); chr$ (8);psi.str   
+16170   print right.20$ ;"Stamina    ="; spc (5); chr$ (8); chr$ (8); chr$ (8); chr$ (8); chr$ (8);stamina 
+16180   if  monster.flag =1  goto monster.info@16210
+16190   print spaces.39$ 
+16200   return 
+//
+//                         Print monster information 
+//
+16210   print down.line.21$ ; chr$ (11); chr$ (11);monster.name$ ;
+16215   temp_aa$ = string$( 12, chr$ (32))+ string$( 12, chr$ (8))
+16220   print down.line.21$ ;right.20$ ; chr$ (11); chr$ (11);"M str =";temp_aa$ ;monster.strength ;" ";monster.magic ; spc (4) 
+16230   return 
+// ***************************************************************************
+//
+//                           Save character to tape 
+//
+// ***************************************************************************
+20000   print  chr$ (12);"Do you wish to save ";name$ ;" ?"
+20010   print '"Please key Y or N"
+20020   keys.group$ ="YN"
+        gosub get.key.from.group@1500
+20030   if  key.press$ ="N"  goto restart.game@20210
+20040   print  chr$ (12);"PLACE YOUR CASSETTE IN THE TAPE DECK"
+20050   print "IS IT REWOUND?"
+20060   gosub press.any.key@1600
+20070   ch= openout ("CHARACTER")
+20080   print #ch, name$ ,class$ ,cash ,experience ,turns ,combat.str ,psi.str ,treasure( 0),treasure( 1),treasure( 2),combat.increment ,magic.skill 
+20200   close #ch
+20205   print  chr$ (12); chr$ (10); chr$ (10); chr$ (10);" *** DONE ***"
+// ***************************************************************************
+//
+//                                Restart game 
+//
+// ***************************************************************************
+20210   *key0"RUN|M"   
+20215   print down.line.21$ ; spc (6);"Press key f0 to start again"
+20220   end 
+// ***************************************************************************
+//
+//                         Display Player Information 
+//
+// ***************************************************************************
+24000   delay.factor =5
+        delay.func$ ="W"
+        gosub delay@16000
+24010   rating = int (0.067*(experience +cash /3)^0.5+ ln (experience /((turns +1)^1.5)))
+        if  rating >28 rating =28 
+24020   if  rating <0 rating =0
+24030   print down.line.21$ ;"Your rating now is ";rating 
+24040   if  treasure( 2)=1  print "You have the HELM OF EVANNA"
+24050   if  treasure( 0)=1  print "Amulet stones ..."; chr$ (32);treasure( 1)
+24060   delay.factor =250
+        delay.func$ ="W"
+        gosub delay@16000
+24070   if  key.press$ ="E" stamina =stamina -10
+        key.press$ =""
+        goto 2010
+24080   return 
+// ***************************************************************************
+//
+//                               Died in battle 
+//
+// ***************************************************************************
+25000   stamina =0
+        combat.str =0
+        psi.str =0
+        monster.flag =0
+25010   delay.factor =110
+        gosub delay@16000
+25020   if  treasure( 1)=6  goto 25070  
+25030   print down.line.21$ , chr$ (9); chr$ (9);"Oh what a frail shell"
+25040   print , chr$ (9),"is this that we call man" 
+25050   delay.factor =300
+        delay.func$ ="W"
+        gosub delay@16000
+25060   cls 
+        goto restart.game@20210
+//
+//                           Resurrected by Amulet 
+//
+25070   treasure( 0)=0
+        treasure( 1)=0
+        cash =0
+        combat.str =30
+        stamina =150
+        psi.str =30
+25080   print down.line.21$ ;"ALARIAN'S AMULET protects thy soul"
+25090   print  chr$ (10);"  LIVE AGAIN!"
+25100   delay.factor =150
+        gosub delay@16000
+25110   curr.y =display( 0)
+        map.player.x =1
+        map.player.y =curr.y 
+        last.player.x =player.x 
+        last.player.y =player.y 
+        location =1
+        goto 9220
+// ***************************************************************************
+//
+//                                   Castle 
+//
+// ***************************************************************************
+28000   print down.line.21$ ;"Thou art safe in a castle"
+        if  combat.str <20 combat.str =20
+28010   gosub character.ident@31000
+        print  tab( last.player.x ,last.player.y ); chr$ (z)
+        old.char.byte = fn test(player.x ,player.y ,5)
+        pk1= fn test(player.x ,player.y ,6)
+        last.player.x =player.x 
+        last.player.y =player.y 
+        print  tab( last.player.x ,last.player.y ); chr$ (player.graphic )
+//
+//               Do you want to leave the castle (save game ?) 
+//
+28020   print down.line.21$ ;'"Wilt thou leave the valley (Y/N) ?"   
+28030   keys.group$ ="YN"
+        gosub get.key.from.group@1500
+28040   delay.factor =5
+        delay.func$ ="W"
+        gosub delay@16000
+28050   gosub display.info@24000
+28060   delay.factor =110
+        delay.func$ ="W"
+        gosub delay@16000
+28070   if  key.press$ ="Y"  goto save.character@20000
+//
+//                         Healed etc. by the castle 
+//
+28080   stamina =150
+        print down.line.21$ ;"Thy wounds healed ... thy sword sharp"
+28090   print "Go as the Gods demand, trust none other"
+28100   delay.factor =120
+        gosub delay@16000
+28110   goto 2010
+// ***************************************************************************
+//
+//                 Identify character that was on the screen 
+//
+// ***************************************************************************
+31000   if  old.char.byte =219  and  pk1=189 z=224
+        return 
+31005   if  old.char.byte =0 z=32
+        return 
+31010   if  old.char.byte =231 z=225
+        return 
+31020   if  old.char.byte =32 z=226
+        return 
+31030   if  old.char.byte =4 z=227
+        return   
+31040   if  old.char.byte =148 z=228
+        return 
+31050   if  old.char.byte =219  and  pk1=231 z=229
+        return 
+31060   if  old.char.byte =20 z=230
+        return 
+31070   if  old.char.byte =31 z=231
+        return 
+31080   if  old.char.byte =85 z=232
+        return  
+31090   if  old.char.byte =171 z=233
+        return 
+31100   if  old.char.byte =107 z=234
+        return 
+31110   if  old.char.byte =255 z=235
+        return 
+31120   if  old.char.byte =10 z=236
+        return 
+31130   if  old.char.byte =189 z=237
+        return 
+31140   if  old.char.byte =204 z=238
+        return  
+31150   if  old.char.byte =36 z=239
+        return  
+31160   if  old.char.byte =129 z=240
+        return   
+31170   z=241
+        return 
+31200   end 
+// ***************************************************************************
+//
+//                   Tower Data. 100 is end of data marker 
+//
+// ***************************************************************************
+31500   data  4,7,3,6,4,4,6,5,3,6,0,3,8,4,3,5,5,3,8,3,4,5,0,6,3,6,4,6,4,7,4,100
+// ***************************************************************************
+//
+//                                Monster list 
+//
+// ***************************************************************************
+31510   data  awolfen,9,0,ahob-goblin,9,0,aorc,9,0,efire-imp,7,3,grock-troll,19,0
+31520   data  eharpy,10,12,aogre,23,0,bbarrow-wight,0,25,hcentaur,18,14  
+31530   data  efire-giant,26,20,vthunder-lizard,50,0,cminotaur,35,25,cwraith,0,30
+31540   data  fwyvern,36,12,bdragon,50,20,cring-wraith,0,45,abalrog,50,50
+31550   data  lwater-imp,15,15,lkraken,50,0
+// ***************************************************************************
+//
+//                        Read a pixel from the screen 
+//
+// ***************************************************************************
+31600   def   fn test(j,k,b)
+31610   =?(23488+8*j+320*k+b)
+// ***************************************************************************
+//
+//                     Copy down program then run at &E00 
+//
+// ***************************************************************************
+32500   *tape
+32505   for i%=0  to   to p- page   step  4
+        i%!&e00=i%! page 
+        next 
+32510   ?&13=?&13-( page -&e00)  div  256
+        page =&e00
+32520   run 
